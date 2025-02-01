@@ -1,0 +1,1 @@
+the code main.py is a sample implementation to create multi-modal model for differential diagnosis prediction.     with various other techniques the code can reach much higher accuracy.   This form of model is necessity in creating accurate and high f1scores
