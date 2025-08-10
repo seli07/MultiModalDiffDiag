@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, random_split
+from torch.nn.parallel import DataParallel
 
 from transformers import AutoModel, AutoTokenizer
 from sklearn.preprocessing import LabelEncoder
@@ -36,9 +37,19 @@ class DATA2(Dataset):
             raise FileNotFoundError("No PKLs found in data directory")
         if debug:
             print(f"Found {len(self.dataFiles)} PKL files")
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        
+        # Detect available GPUs and set primary device
+        if torch.cuda.is_available():
+            self.device = f"cuda:{torch.cuda.current_device()}"
+            self.num_gpus = torch.cuda.device_count()
+        else:
+            self.device = "cpu"
+            self.num_gpus = 0
+            
         if debug:
             print(f"Using {self.device}")
+            if self.num_gpus > 1:
+                print(f"Found {self.num_gpus} GPUs available for DataParallel")
         self.labelEncoder = LabelEncoder()
 
         self.IDColumn = "Patient IDX"
@@ -420,6 +431,16 @@ class ModelDD(nn.Module):
 
 
 def train_model(model, train_loader, test_loader, device, epochs=10, lr=1e-3):
+    # Check for multiple GPUs and wrap with DataParallel if available
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        print(f"Using DataParallel with {num_gpus} GPUs")
+        model = DataParallel(model)
+        # Use the first GPU as the primary device
+        device = f"cuda:{torch.cuda.current_device()}"
+    else:
+        print(f"Using single device: {device}")
+    
     model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
     # Assuming multi-label classification; adjust loss if necessary
@@ -468,8 +489,17 @@ if __name__ == "__main__":
     train_loader, test_loader, categEncoders, shapes = loadHIEDATA(dataDir=dataDir)
     contFeatureLen, categLen, clinicNotesLen, outputLen = shapes
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
+    # Detect available GPUs and set primary device
+    if torch.cuda.is_available():
+        device = f"cuda:{torch.cuda.current_device()}"
+        num_gpus = torch.cuda.device_count()
+        print(f"Using device: {device}")
+        if num_gpus > 1:
+            print(f"Found {num_gpus} GPUs - DataParallel will be enabled")
+    else:
+        device = "cpu"
+        num_gpus = 0
+        print(f"Using device: {device}")
 
     model = ModelDD(contFeatureLen, categLen, clinicNotesLen, outputLen)
     print(model)
