@@ -3,7 +3,8 @@ import re
 from pathlib import Path
 from copy import deepcopy
 from functools import reduce
-
+#import urllib.request
+import gdown
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -28,10 +29,13 @@ class DATA2(Dataset):
         self.debug = debug
         self.dataPath = Path(dataLocation)
 
-        if not self.dataPath.is_dir():
-            raise FileNotFoundError("Data directory doesn't exist")
-        if debug:
-            print("Found data directory")
+        if not self.dataPath.is_dir() or not any(self.dataPath.glob("*.pkl")):
+            if debug:
+                print("Data directory doesn't exist, creating and downloading...")
+            self._download_pkl_file()
+        else:
+            if debug:
+                print("Found data directory")
         self.dataFiles = list(self.dataPath.glob("*.pkl"))
         if not len(self.dataFiles):
             raise FileNotFoundError("No PKLs found in data directory")
@@ -238,6 +242,43 @@ class DATA2(Dataset):
         if debug:
             print("Done initializing Dataset.")
 
+    def _download_pkl_file(self):
+        """Create data directory and download PKL file from Google Drive"""
+        # Replace YOUR_FILE_ID with your actual Google Drive file ID
+        google_drive_file_id = "1OtItGEja0oJfrqpc3oCoHZha1Y8fTQ1T"
+        #download_url = f"https://drive.google.com/uc?id={google_drive_file_id}&export=download"
+        
+        # Create data directory if it doesn't exist
+        self.dataPath.mkdir(parents=True, exist_ok=True)
+        if self.debug:
+            print(f"Created data directory: {self.dataPath}")
+        
+        # Name for your PKL file (change this to match your actual filename)
+        pkl_file_path = self.dataPath / "cqlplanfile_with_projected_embeddings_small.pkl"
+        
+        try:
+            if self.debug:
+                print(f"Downloading PKL file from Google Drive...")
+                #print(f"URL: {download_url}")
+                #print(f"Saving to: {pkl_file_path}")
+            
+            # Download the PKL file directly
+            #urllib.request.urlretrieve(download_url, pkl_file_path)
+            url = f"https://drive.google.com/uc?id={google_drive_file_id}"
+            gdown.download(url, str(pkl_file_path), quiet=False)
+
+            if self.debug:
+                print("Download complete!")
+                print(f"File size: {pkl_file_path.stat().st_size / (1024*1024):.1f} MB")
+                print(f"Contents of {self.dataPath}:")
+                for item in self.dataPath.iterdir():
+                    print(f"  {item.name}")
+                    
+        except Exception as e:
+            if self.debug:
+                print(f"Error downloading PKL file: {e}")
+            raise RuntimeError(f"Failed to download PKL file from Google Drive: {e}")
+    
     def __getitem__(self, index):
         return (
             self.contData[index],
