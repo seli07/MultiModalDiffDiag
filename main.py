@@ -277,6 +277,10 @@ class DATA2(Dataset):
         except Exception as e:
             if self.debug:
                 print(f"Error downloading PKL file: {e}")
+                print(f"Exception type: {type(e).__name__}")
+                print(f"Exception details: {str(e)}")
+                import traceback
+                print(f"Full traceback:\n{traceback.format_exc()}")
             raise RuntimeError(f"Failed to download PKL file from Google Drive: {e}")
     
     def __getitem__(self, index):
